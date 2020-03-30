@@ -1,0 +1,96 @@
+---
+-  hosts: web
+   remote_user: ec2-user
+   become: true
+   tasks:
+   - name: update all packages
+     yum:
+        name: '*'
+        state: latest
+   - name: install wget
+     yum:
+        name: wget
+        state: latest
+   - name: install openjdk
+     yum:
+        name: java-1.8.0-openjdk.x86_64
+        state: present
+   - name: mkdir /app
+     file:
+         path: /app
+         state: directory
+
+   - name: download repo
+     get_url:
+         url: "https://download.sonatype.com/nexus/3/latest-unix.tar.gz"
+         dest: /app
+    
+   - name: Extract nexus.tar.gz 
+     unarchive:
+          src: /app/nexus-3.22.0-02-unix.tar.gz
+          dest: /app
+          remote_src: yes
+   
+  #  - name: rename nexus
+  #    command: mv /app/nexus-3.22.0-02 /app/nexus
+
+   - name: Create nexus user
+     user:
+      name: nexus
+   - name: Change the ownership of nexus files
+     file:
+        path: /app/nexus
+        state: directory
+        owner: nexus
+        group: nexus
+   - name: Change the ownership of nexus  data directory
+     file:
+        path: /app/sonatype-work
+        state: directory
+        owner: nexus
+        group: nexus
+   - name: Uncomment run_as_user parameter
+     replace:
+        path: /app/nexus/nexus-3.22.0-02/bin/nexus.rc
+        regexp: '#run_as_user=""'
+        replace: 'run_as_user="nexus"'
+
+
+
+  #  - name: Create a nexus systemd unit file.
+  #    blockinfile:
+  #     path: /etc/systemd/system/nexus.service
+  #     block: '[Unit]
+  #               Description=nexus service
+  #               After=network.target
+                
+  #               [Service]
+  #               Type=forking
+  #               LimitNOFILE=65536
+  #               User=nexus
+  #               Group=nexus
+  #               ExecStart=/app/nexus/nexus-3.22.0-02/bin/nexus start
+  #               ExecStop=/app/nexus/nexus-3.22.0-02/bin/nexus stop
+  #               User=nexus
+  #               Restart=on-abort
+                
+  #               [Install]
+  #               WantedBy=multi-user.target'
+   - name: register service with checkconfig
+     service: name=nexus  enabled=yes
+
+   - name:  command to add nexus service to boot.
+     command: chkconfig nexus on
+
+   - name: start nexus
+     service:
+            name: nexus
+            state: started
+
+      
+      
+          
+         
+        
+
+
